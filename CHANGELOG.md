@@ -1,0 +1,12 @@
+# 1.0.0 (2025-12-16)
+
+
+### Bug Fixes
+
+* update npm scope to [@west10tech](https://github.com/west10tech) ([3984c90](https://github.com/w-10-m/notion-mcp/commit/3984c90d2596da7c0f1a412e1cb2efc5a4e36c7e))
+
+
+### Features
+
+* add automated npm publishing with semantic-release ([ee09c57](https://github.com/w-10-m/notion-mcp/commit/ee09c57c37fd8cabaea4c440abddd90d12590a63))
+* Initial notion-mcp MCP server ([c552931](https://github.com/w-10-m/notion-mcp/commit/c55293150ed7d647b447eb9f29191eee5aaa4c4f))

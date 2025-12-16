@@ -1,6 +1,6 @@
 {
   "name": "@west10tech/notion-mcp",
-  "version": "0.0.0-development",
+  "version": "1.0.0",
   "description": "MCP server with full notion capabilities (20 endpoints)",
   "type": "module",
   "main": "dist/index.js",
