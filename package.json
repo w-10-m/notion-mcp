@@ -1,5 +1,5 @@
 {
-  "name": "@w-10-m/notion-mcp",
+  "name": "@west10tech/notion-mcp",
   "version": "0.0.0-development",
   "description": "MCP server with full notion capabilities (20 endpoints)",
   "type": "module",
