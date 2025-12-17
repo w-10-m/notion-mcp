@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/w-10-m/notion-mcp/compare/v1.0.0...v1.1.0) (2025-12-17)
+
+
+### Features
+
+* add OIDC npm publishing with provenance ([1d57d2a](https://github.com/w-10-m/notion-mcp/commit/1d57d2ad56670054f12af764cffa641372ecc22d))
+
 # 1.0.0 (2025-12-16)
 
 
