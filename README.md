@@ -1,6 +1,10 @@
 # notion-mcp
 
-MCP server with full notion capabilities (20 endpoints)
+[![npm version](https://img.shields.io/npm/v/@west10tech/notion-mcp.svg)](https://www.npmjs.com/package/@west10tech/notion-mcp)
+
+MCP server with full Notion capabilities (20 endpoints)
+
+**npm:** https://www.npmjs.com/package/@west10tech/notion-mcp
 
 This MCP server includes the following integrations:
 
@@ -33,7 +37,7 @@ This MCP server provides 20 tools across 1 integrations:
 ## Installation
 
 ```bash
-npm install notion-mcp-496207f7-b2cc-4edc-aa28-a31b7fb738c2
+npm install @west10tech/notion-mcp
 ```
 
 ## Environment Setup
@@ -65,7 +69,7 @@ Add this to your Claude Desktop configuration:
   "mcpServers": {
     "notion-mcp": {
       "command": "npx",
-      "args": ["notion-mcp-496207f7-b2cc-4edc-aa28-a31b7fb738c2"],
+      "args": ["@west10tech/notion-mcp"],
       "env": {
         "NOTION_ACCESS_TOKEN": "your_notion_access_token_here"
       }
