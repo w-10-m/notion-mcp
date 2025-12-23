@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/w-10-m/notion-mcp/compare/v1.1.0...v1.1.1) (2025-12-23)
+
+
+### Bug Fixes
+
+* update README with correct package information ([adfbf19](https://github.com/w-10-m/notion-mcp/commit/adfbf19cff3d496e1c182adb8b4a628221ed3d9c))
+
 # [1.1.0](https://github.com/w-10-m/notion-mcp/compare/v1.0.0...v1.1.0) (2025-12-17)
 
 
