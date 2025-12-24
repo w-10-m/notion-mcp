@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/w-10-m/notion-mcp/compare/v1.2.0...v1.3.0) (2025-12-24)
+
+
+### Features
+
+* add unit tests with 86.88% coverage ([85d7f9e](https://github.com/w-10-m/notion-mcp/commit/85d7f9eae9a88ac880e55762eb02f678191cc300))
+
 # [1.2.0](https://github.com/w-10-m/notion-mcp/compare/v1.1.1...v1.2.0) (2025-12-24)
 
 
