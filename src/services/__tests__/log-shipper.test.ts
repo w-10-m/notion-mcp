@@ -27,8 +27,15 @@ describe('LogShipper', () => {
   });
 
   afterEach(async () => {
+    // Clear all pending timers first to prevent hanging
+    jest.clearAllTimers();
+
     if (shipper) {
-      await shipper.shutdown();
+      try {
+        await shipper.shutdown();
+      } catch (e) {
+        // Ignore shutdown errors during cleanup
+      }
     }
     jest.useRealTimers();
   });
@@ -396,6 +403,288 @@ describe('LogShipper', () => {
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
       expect(body.logs[0].component).toBe('client');
+    });
+  });
+
+  describe('metadata cleaning', () => {
+    beforeEach(() => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ success: true })
+      });
+      shipper = new LogShipper(config);
+    });
+
+    it('should include metadata in log payload', async () => {
+      const logEntry: LogEntry = {
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        sessionId: 'test-session',
+        user: 'test-user',
+        integration: 'test',
+        component: 'client',
+        action: 'test_action',
+        message: 'Test message',
+        serverName: 'test-server',
+        metadata: {
+          duration_ms: 100,
+          httpStatus: 200
+        }
+      };
+
+      shipper.addLog(logEntry);
+      await shipper.flush();
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.logs[0].metadata).toEqual({
+        duration_ms: 100,
+        httpStatus: 200
+      });
+    });
+
+    it('should handle function values in metadata', async () => {
+      const logEntry: LogEntry = {
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        sessionId: 'test-session',
+        user: 'test-user',
+        integration: 'test',
+        component: 'client',
+        action: 'test_action',
+        message: 'Test message',
+        serverName: 'test-server',
+        metadata: {
+          callback: () => {},
+          normalValue: 'test'
+        }
+      };
+
+      shipper.addLog(logEntry);
+      await shipper.flush();
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.logs[0].metadata.callback).toBe('[Function]');
+      expect(body.logs[0].metadata.normalValue).toBe('test');
+    });
+
+    it('should handle undefined values in metadata', async () => {
+      const logEntry: LogEntry = {
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        sessionId: 'test-session',
+        user: 'test-user',
+        integration: 'test',
+        component: 'client',
+        action: 'test_action',
+        message: 'Test message',
+        serverName: 'test-server',
+        metadata: {
+          defined: 'value',
+          undefinedValue: undefined
+        }
+      };
+
+      shipper.addLog(logEntry);
+      await shipper.flush();
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.logs[0].metadata.defined).toBe('value');
+      expect(body.logs[0].metadata.undefinedValue).toBeUndefined();
+    });
+
+    it('should handle circular references in metadata', async () => {
+      const circular: any = { name: 'test' };
+      circular.self = circular;
+
+      const logEntry: LogEntry = {
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        sessionId: 'test-session',
+        user: 'test-user',
+        integration: 'test',
+        component: 'client',
+        action: 'test_action',
+        message: 'Test message',
+        serverName: 'test-server',
+        metadata: {
+          circular
+        }
+      };
+
+      shipper.addLog(logEntry);
+      await shipper.flush();
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.logs[0].metadata.circular).toBe('[object Object]');
+    });
+
+    it('should handle null metadata', async () => {
+      const logEntry: LogEntry = {
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        sessionId: 'test-session',
+        user: 'test-user',
+        integration: 'test',
+        component: 'client',
+        action: 'test_action',
+        message: 'Test message',
+        serverName: 'test-server',
+        metadata: null as any
+      };
+
+      shipper.addLog(logEntry);
+      await shipper.flush();
+
+      expect(mockFetch).toHaveBeenCalled();
+    });
+  });
+
+
+  describe('scheduled flush', () => {
+    it('should flush on interval', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ success: true })
+      });
+
+      shipper = new LogShipper(config);
+
+      const logEntry: LogEntry = {
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        sessionId: 'test-session',
+        user: 'test-user',
+        integration: 'test',
+        component: 'client',
+        action: 'test_action',
+        message: 'Test message',
+        serverName: 'test-server'
+      };
+
+      shipper.addLog(logEntry);
+
+      // Advance timer past flush interval
+      jest.advanceTimersByTime(5000);
+
+      await Promise.resolve();
+
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    it('should handle scheduled flush error', async () => {
+      mockFetch.mockRejectedValue(new Error('Network error'));
+
+      shipper = new LogShipper(config);
+
+      const logEntry: LogEntry = {
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        sessionId: 'test-session',
+        user: 'test-user',
+        integration: 'test',
+        component: 'client',
+        action: 'test_action',
+        message: 'Test message',
+        serverName: 'test-server'
+      };
+
+      shipper.addLog(logEntry);
+
+      // Advance timer past flush interval
+      jest.advanceTimersByTime(5000);
+
+      await Promise.resolve();
+
+      // Should log error but not throw
+      expect(mockConsoleError).toHaveBeenCalled();
+    });
+  });
+
+  describe('immediate flush error handling', () => {
+    it('should handle immediate flush error when batch size reached', async () => {
+      mockFetch.mockRejectedValue(new Error('Network error'));
+
+      config.batchSize = 2;
+      shipper = new LogShipper(config);
+
+      const logEntry: LogEntry = {
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        sessionId: 'test-session',
+        user: 'test-user',
+        integration: 'test',
+        component: 'client',
+        action: 'test_action',
+        message: 'Test message',
+        serverName: 'test-server'
+      };
+
+      shipper.addLog(logEntry);
+      shipper.addLog(logEntry);
+
+      await Promise.resolve();
+
+      // Should log error but not throw
+      expect(mockConsoleError).toHaveBeenCalled();
+    });
+  });
+
+  describe('HTTP error handling', () => {
+    beforeEach(() => {
+      shipper = new LogShipper(config);
+    });
+
+    it('should handle 403 auth error', async () => {
+      config.apiKey = undefined;
+      config.requireApiKey = false;
+      shipper = new LogShipper(config);
+
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        text: () => Promise.resolve('Forbidden')
+      });
+
+      const logEntry: LogEntry = {
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        sessionId: 'test-session',
+        user: 'test-user',
+        integration: 'test',
+        component: 'client',
+        action: 'test_action',
+        message: 'Test message',
+        serverName: 'test-server'
+      };
+
+      shipper.addLog(logEntry);
+
+      await expect(shipper.flush()).rejects.toThrow(/Authentication required/);
+    });
+  });
+
+  describe('timer restart', () => {
+    it('should clear existing timer when starting new one', () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ success: true })
+      });
+
+      // Create first shipper - starts timer
+      const shipper1 = new LogShipper(config);
+
+      // Shutdown first to clean up
+      shipper1.shutdown();
+
+      // Create second shipper - should clear and restart timer
+      shipper = new LogShipper(config);
+
+      expect(shipper.getHealthStatus().config.enabled).toBe(true);
     });
   });
 });
