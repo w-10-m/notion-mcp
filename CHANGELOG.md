@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/w-10-m/notion-mcp/compare/v1.4.0...v1.5.0) (2025-12-25)
+
+
+### Features
+
+* add E2E test infrastructure ([892e011](https://github.com/w-10-m/notion-mcp/commit/892e011d0aea914baf2a02a152d009dc460850a0))
+
 # [1.4.0](https://github.com/w-10-m/notion-mcp/compare/v1.3.0...v1.4.0) (2025-12-24)
 
 
