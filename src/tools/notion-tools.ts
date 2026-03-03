@@ -3,9 +3,33 @@ import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { Logger } from '../services/logger.js';
 import { RequestContext } from '../services/request-tracker.js';
 import { ProgressReporter } from '../services/progress-reporter.js';
+import {
+  ToolResponse,
+  GetDatabaseParams,
+  QueryDatabaseParams,
+  CreateDatabaseParams,
+  UpdateDatabaseParams,
+  GetPageParams,
+  CreatePageParams,
+  UpdatePageParams,
+  GetPagePropertyParams,
+  GetBlockChildrenParams,
+  AppendBlockChildrenParams,
+  GetBlockParams,
+  UpdateBlockParams,
+  DeleteBlockParams,
+  ListUsersParams,
+  GetUserParams,
+  SearchParams,
+  CreateCommentParams,
+  GetCommentsParams,
+  CreatePageFromTemplateParams,
+  CreateDatabaseFromTemplateParams,
+  DuplicatePageParams,
+  DuplicateDatabaseParams,
+} from '../types.js';
 
 export interface NotionToolsConfig {
-  nOTIONACCESSTOKEN?: string;
   authToken?: string;
   logger?: Logger;
 }
@@ -52,24 +76,6 @@ export class NotionTools {
 
   getToolDefinitions(): Tool[] {
     return [
-      {
-        name: 'notion_list_databases',
-        description: '⚠️ DEPRECATED: This endpoint is deprecated by Notion API. Use the search endpoint with database filter instead.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            start_cursor: {
-              type: 'string',
-              description: 'Pagination cursor'
-            },
-            page_size: {
-              type: 'number',
-              description: 'Number of results per page (max 100)'
-            }
-          },
-          required: []
-        }
-      },
       {
         name: 'notion_get_database',
         description: 'Get database by ID',
@@ -575,13 +581,104 @@ export class NotionTools {
           },
           required: ['block_id']
         }
+      },
+      {
+        name: 'notion_create_page_from_template',
+        description: 'Create a new page by copying blocks from a template page',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            template_page_id: {
+              type: 'string',
+              description: 'ID of the template page to copy blocks from'
+            },
+            parent: {
+              type: 'object',
+              description: 'Parent object (database or page) for the new page'
+            },
+            title: {
+              type: 'string',
+              description: 'Title for the new page'
+            },
+            properties: {
+              type: 'object',
+              description: 'Additional properties for the new page'
+            }
+          },
+          required: ['template_page_id', 'parent']
+        }
+      },
+      {
+        name: 'notion_create_database_from_template',
+        description: 'Create a new database by copying schema from a template database',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            template_database_id: {
+              type: 'string',
+              description: 'ID of the template database to copy schema from'
+            },
+            parent: {
+              type: 'object',
+              description: 'Parent page for the new database'
+            },
+            title: {
+              type: 'string',
+              description: 'Title for the new database'
+            }
+          },
+          required: ['template_database_id', 'parent', 'title']
+        }
+      },
+      {
+        name: 'notion_duplicate_page',
+        description: 'Duplicate an existing page with its content blocks',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            page_id: {
+              type: 'string',
+              description: 'ID of the page to duplicate'
+            },
+            parent: {
+              type: 'object',
+              description: 'Parent object for the duplicate (defaults to same parent)'
+            },
+            title: {
+              type: 'string',
+              description: 'Title for the duplicate (defaults to "Copy of {original}")'
+            }
+          },
+          required: ['page_id']
+        }
+      },
+      {
+        name: 'notion_duplicate_database',
+        description: 'Duplicate an existing database with its schema',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            database_id: {
+              type: 'string',
+              description: 'ID of the database to duplicate'
+            },
+            parent: {
+              type: 'object',
+              description: 'Parent page for the duplicate (defaults to same parent)'
+            },
+            title: {
+              type: 'string',
+              description: 'Title for the duplicate (defaults to "Copy of {original}")'
+            }
+          },
+          required: ['database_id']
+        }
       }
     ];
   }
 
   canHandle(toolName: string): boolean {
     const supportedTools: string[] = [
-      'notion_list_databases',
       'notion_get_database',
       'notion_query_database',
       'notion_create_database',
@@ -600,12 +697,16 @@ export class NotionTools {
       'notion_get_me',
       'notion_search',
       'notion_create_comment',
-      'notion_get_comments'
+      'notion_get_comments',
+      'notion_create_page_from_template',
+      'notion_create_database_from_template',
+      'notion_duplicate_page',
+      'notion_duplicate_database'
     ];
     return supportedTools.includes(toolName);
   }
 
-  async executeTool(name: string, args: any, context?: RequestContext, progressReporter?: ProgressReporter): Promise<any> {
+  async executeTool(name: string, args: Record<string, unknown>, context?: RequestContext, progressReporter?: ProgressReporter): Promise<ToolResponse> {
     const startTime = Date.now();
     
     this.logger.logToolStart(name, args);
@@ -625,7 +726,7 @@ export class NotionTools {
     if (!this.canHandle(name)) {
       this.logger.error('TOOL_ERROR', 'Unknown tool requested', {
         tool: name,
-        supportedTools: ['notion_list_databases', 'notion_get_database', 'notion_query_database', 'notion_create_database', 'notion_update_database', 'notion_get_page', 'notion_create_page', 'notion_update_page', 'notion_get_page_property', 'notion_get_block_children', 'notion_append_block_children', 'notion_get_block', 'notion_update_block', 'notion_delete_block', 'notion_list_users', 'notion_get_user', 'notion_get_me', 'notion_search', 'notion_create_comment', 'notion_get_comments']
+        supportedTools: ['notion_get_database', 'notion_query_database', 'notion_create_database', 'notion_update_database', 'notion_get_page', 'notion_create_page', 'notion_update_page', 'notion_get_page_property', 'notion_get_block_children', 'notion_append_block_children', 'notion_get_block', 'notion_update_block', 'notion_delete_block', 'notion_list_users', 'notion_get_user', 'notion_get_me', 'notion_search', 'notion_create_comment', 'notion_get_comments', 'notion_create_page_from_template', 'notion_create_database_from_template', 'notion_duplicate_page', 'notion_duplicate_database']
       });
       throw new Error(`Unknown tool: ${name}`);
     }
@@ -648,34 +749,6 @@ export class NotionTools {
       };
       
       switch (name) {
-        case 'notion_list_databases':
-          this.logger.debug('TOOL_EXECUTE', 'Calling client method', {
-            tool: 'notion_list_databases',
-            clientMethod: 'listDatabases',
-            hasAbortSignal: !!requestOptions.signal,
-            hasProgressCallback: !!requestOptions.onProgress
-          });
-          
-          // Report initial progress
-          if (context?.progressToken && progressReporter) {
-            await progressReporter.report(context.progressToken, {
-              progress: 0,
-              total: 100,
-              message: `Starting list_databases operation...`
-            });
-          }
-          
-          result = await this.client.listDatabases(args, requestOptions);
-          
-          // Report completion
-          if (context?.progressToken && progressReporter) {
-            await progressReporter.report(context.progressToken, {
-              progress: 100,
-              total: 100,
-              message: `Completed list_databases operation`
-            });
-          }
-          break;
         case 'notion_get_database':
           this.logger.debug('TOOL_EXECUTE', 'Calling client method', {
             tool: 'notion_get_database',
@@ -1207,6 +1280,42 @@ export class NotionTools {
               message: `Completed get_comments operation`
             });
           }
+          break;
+        case 'notion_create_page_from_template':
+          this.logger.debug('TOOL_EXECUTE', 'Calling client method', {
+            tool: 'notion_create_page_from_template',
+            clientMethod: 'createPageFromTemplate',
+            hasAbortSignal: !!requestOptions.signal,
+            hasProgressCallback: !!requestOptions.onProgress
+          });
+          result = await this.client.createPageFromTemplate(args as unknown as CreatePageFromTemplateParams, requestOptions);
+          break;
+        case 'notion_create_database_from_template':
+          this.logger.debug('TOOL_EXECUTE', 'Calling client method', {
+            tool: 'notion_create_database_from_template',
+            clientMethod: 'createDatabaseFromTemplate',
+            hasAbortSignal: !!requestOptions.signal,
+            hasProgressCallback: !!requestOptions.onProgress
+          });
+          result = await this.client.createDatabaseFromTemplate(args as unknown as CreateDatabaseFromTemplateParams, requestOptions);
+          break;
+        case 'notion_duplicate_page':
+          this.logger.debug('TOOL_EXECUTE', 'Calling client method', {
+            tool: 'notion_duplicate_page',
+            clientMethod: 'duplicatePage',
+            hasAbortSignal: !!requestOptions.signal,
+            hasProgressCallback: !!requestOptions.onProgress
+          });
+          result = await this.client.duplicatePage(args as unknown as DuplicatePageParams, requestOptions);
+          break;
+        case 'notion_duplicate_database':
+          this.logger.debug('TOOL_EXECUTE', 'Calling client method', {
+            tool: 'notion_duplicate_database',
+            clientMethod: 'duplicateDatabase',
+            hasAbortSignal: !!requestOptions.signal,
+            hasProgressCallback: !!requestOptions.onProgress
+          });
+          result = await this.client.duplicateDatabase(args as unknown as DuplicateDatabaseParams, requestOptions);
           break;
         default:
           throw new Error(`Unknown tool: ${name}`);

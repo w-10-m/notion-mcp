@@ -2,6 +2,8 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { createServer } from 'http';
 import {
   CallToolRequestSchema,
   ErrorCode,
@@ -9,8 +11,12 @@ import {
   McpError,
   CancelledNotificationSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import { createRequire } from 'module';
 import { config } from 'dotenv';
 import { loadConfig, validateConfig } from './config.js';
+
+const require = createRequire(import.meta.url);
+const { version: PKG_VERSION } = require('../package.json');
 import { LogShipper } from './services/log-shipper.js';
 import { Logger } from './services/logger.js';
 import { RequestTracker } from './services/request-tracker.js';
@@ -47,7 +53,7 @@ class NotionMcpServer {
     this.server = new Server(
       {
         name: 'notion-mcp',
-        version: '1.0.0',
+        version: PKG_VERSION,
       },
       {
         capabilities: {
@@ -62,7 +68,7 @@ class NotionMcpServer {
     // Regular client - pass configuration object
     this.notionClient = new NotionClient({
       authToken: process.env.NOTION_ACCESS_TOKEN,
-      nOTIONACCESSTOKEN: process.env.NOTION_ACCESS_TOKEN,
+      version: PKG_VERSION,
       logger: this.logger
     });
     this.notionTools = new NotionTools(this.notionClient);
@@ -121,9 +127,9 @@ class NotionMcpServer {
       return { tools };
     });
 
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const { name, arguments: args } = request.params;
-      const requestId = (request as any).id;
+    this.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+      const { name, arguments: args = {} } = request.params;
+      const requestId = extra.requestId ?? `fallback-${Date.now()}`;
       const progressToken = request.params._meta?.progressToken;
       
       // Register request for tracking
@@ -183,6 +189,10 @@ class NotionMcpServer {
       });
       
       // Cancel the request
+      if (!requestId) {
+        this.logger.debug('CANCELLATION_IGNORED', 'No requestId in cancellation notification');
+        return;
+      }
       const cancelled = this.requestTracker.cancelRequest(requestId, reason);
       
       if (!cancelled) {
@@ -193,23 +203,89 @@ class NotionMcpServer {
     });
   }
 
-  async run() {
+  private async runStdio() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    
+
     this.logger.info('SERVER_START', 'MCP server started successfully', {
       serverName: 'notion-mcp',
       transport: 'stdio'
     });
-    
+
     console.error('notion-mcp MCP server running on stdio');
-    
+  }
+
+  private async runHttp() {
+    const port = parseInt(process.env.PORT || '3000', 10);
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined, // stateless mode
+    });
+
+    await this.server.connect(transport);
+
+    const httpServer = createServer(async (req, res) => {
+      res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id');
+      res.setHeader('Access-Control-Expose-Headers', 'mcp-session-id');
+
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+
+      if (req.method === 'GET' && req.url === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', server: 'notion-mcp' }));
+        return;
+      }
+
+      if (req.method === 'POST') {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) {
+          chunks.push(chunk as Buffer);
+        }
+        let body: unknown;
+        try {
+          body = JSON.parse(Buffer.concat(chunks).toString());
+        } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid JSON in request body' }));
+          return;
+        }
+        await transport.handleRequest(req, res, body);
+        return;
+      }
+
+      await transport.handleRequest(req, res);
+    });
+
+    httpServer.listen(port, () => {
+      this.logger.info('SERVER_START', 'MCP server started successfully', {
+        serverName: 'notion-mcp',
+        transport: 'http',
+        port
+      });
+      console.error(`notion-mcp MCP server running on http://localhost:${port}`);
+    });
+  }
+
+  async run() {
+    const transportMode = process.env.TRANSPORT_MODE || 'stdio';
+
+    if (transportMode === 'http') {
+      await this.runHttp();
+    } else {
+      await this.runStdio();
+    }
+
     // Handle graceful shutdown for log shipping
     const shutdown = async () => {
       this.logger.info('SERVER_SHUTDOWN', 'MCP server shutting down', {
         serverName: 'notion-mcp'
       });
-      
+
       // Shutdown request tracking and progress reporting
       if (this.requestTracker) {
         this.requestTracker.shutdown();
@@ -217,15 +293,15 @@ class NotionMcpServer {
       if (this.progressReporter) {
         this.progressReporter.shutdown();
       }
-      
+
       // Shutdown logging
       if (this.logShipper) {
         await this.logShipper.shutdown();
       }
-      
+
       process.exit(0);
     };
-    
+
     process.on('SIGINT', shutdown);
     process.on('SIGTERM', shutdown);
   }

@@ -1,7 +1,7 @@
 {
   "name": "@west10tech/notion-mcp",
   "version": "1.5.0",
-  "description": "MCP server with full notion capabilities (20 endpoints)",
+  "description": "MCP server with full Notion capabilities (23 tools)",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -27,7 +27,7 @@
   "author": "Coretext AI <npm@coretext.ai>",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^0.5.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "axios": "^1.6.0",
     "dotenv": "^16.3.0"
   },

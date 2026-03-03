@@ -12,7 +12,7 @@ export interface ServerConfig {
   };
   
   notion: {
-    nOTIONACCESSTOKEN: string;
+    notionAccessToken: string;
   };
 }
 
@@ -31,7 +31,7 @@ export function loadConfig(): ServerConfig {
     },
     
     notion: {
-      nOTIONACCESSTOKEN: process.env.NOTION_ACCESS_TOKEN || '',
+      notionAccessToken: process.env.NOTION_ACCESS_TOKEN || '',
     },
   };
 }
@@ -72,7 +72,7 @@ export function validateConfig(config: ServerConfig): { isValid: boolean; errors
 
   // Validate notion configuration
   // Standard authentication validation
-  if (!config.notion.nOTIONACCESSTOKEN) {
+  if (!config.notion.notionAccessToken) {
     errors.push('NOTION_ACCESS_TOKEN environment variable is required for notion');
   }
   

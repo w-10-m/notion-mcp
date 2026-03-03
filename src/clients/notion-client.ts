@@ -1,12 +1,20 @@
 import axios, { AxiosInstance } from 'axios';
 import { Logger } from '../services/logger.js';
-import { RequestOptions, ProgressCallback } from '../types.js';
+import {
+  RequestOptions,
+  ProgressCallback,
+  ToolResponse,
+  CreatePageFromTemplateParams,
+  CreateDatabaseFromTemplateParams,
+  DuplicatePageParams,
+  DuplicateDatabaseParams,
+} from '../types.js';
 
 export interface NotionClientConfig {
-  nOTIONACCESSTOKEN?: string;
   timeout?: number;
   rateLimit?: number; // requests per minute
   authToken?: string;
+  version?: string;
   logger?: Logger;
 }
 
@@ -47,7 +55,7 @@ export class NotionClient {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'User-Agent': 'notion-mcp/1.0.0',
+        'User-Agent': `notion-mcp/${this.config.version || '0.0.0'}`,
         'Notion-Version': '2022-06-28',
         ...this.getAuthHeaders()
       },
@@ -209,7 +217,7 @@ export class NotionClient {
     // Use first required env var if specified
     envVarName = 'NOTION_ACCESS_TOKEN';
     
-    const token = this.config.authToken || this.config['nOTIONACCESSTOKEN'] || process.env[envVarName];
+    const token = this.config.authToken || process.env[envVarName];
     if (token) {
       this.logger.logAuthEvent('static_token_auth_setup', true, {
         authType: 'bearer',
@@ -308,153 +316,6 @@ export class NotionClient {
       hasGoogleTemplates: googlePathTemplateRegex.test(template)
     });
     return path;
-  }
-
-  /* DEBUG: endpoint={"name":"list_databases","method":"GET","path":"/databases","description":"⚠️ DEPRECATED: This endpoint is deprecated by Notion API. Use the search endpoint with database filter instead.","parameters":{"start_cursor":{"type":"string","required":false,"description":"Pagination cursor","location":"query"},"page_size":{"type":"number","required":false,"description":"Number of results per page (max 100)","location":"query","default":100}},"response_format":"json","category":"Database Operations"} */
-  async listDatabases(params: any, options?: RequestOptions): Promise<any> {
-    const startTime = Date.now();
-    this.logger.info('ENDPOINT_START', 'Endpoint execution started', {
-      endpoint: 'list_databases',
-      method: 'GET',
-      path: '/databases',
-      paramCount: Object.keys(params || {}).length,
-      paramKeys: Object.keys(params || {})
-    });
-    
-    try {
-      
-      // Extract and separate parameters by location: path, query, body
-      const pathTemplate = '/databases';
-      const pathParams: Record<string, any> = {};
-      const queryParams: Record<string, any> = {};
-      const bodyParams: Record<string, any> = {};
-      const extractedParams: string[] = [];
-      
-      // Handle Google-style path templates: {resourceName=people/*} and {person.resourceName=people/*}
-      const googlePathTemplateRegex = /{([^}=]+)=[^}]*}/g;
-      let match;
-      
-      while ((match = googlePathTemplateRegex.exec(pathTemplate)) !== null) {
-        const paramName = match[1]; // e.g., "resourceName" or "person.resourceName"
-        if (paramName && params[paramName] !== undefined) {
-          pathParams[paramName] = params[paramName];
-          extractedParams.push(paramName);
-        }
-      }
-      
-      // Handle standard path templates: {resourceName}
-      const standardPathParams = pathTemplate.match(/{([^}=]+)}/g) || [];
-      standardPathParams.forEach(paramTemplate => {
-        const paramName = paramTemplate.slice(1, -1); // Remove { }
-        // Only process if not already handled by Google template logic
-        if (!extractedParams.includes(paramName)) {
-          if (params[paramName] !== undefined) {
-            pathParams[paramName] = params[paramName];
-            extractedParams.push(paramName);
-          } else {
-            // Provide default values for optional path parameters
-            if (paramName === 'userId') {
-              pathParams[paramName] = 'me'; // Default to authenticated user
-              extractedParams.push(paramName);
-            }
-          }
-        }
-      });
-      
-      // Check if any parameter has raw_array flag
-      let hasRawArrayBody = false;
-      let rawBodyData: any = undefined;
-      
-      // Separate remaining parameters by location (query vs body)
-      if (params[""] !== undefined) {
-        queryParams[""] = params[""];
-        extractedParams.push("");
-      }
-      if (params[""] !== undefined) {
-        queryParams[""] = params[""];
-        extractedParams.push("");
-      }
-      
-      // Any remaining unprocessed parameters default to body for backward compatibility
-      for (const [key, value] of Object.entries(params)) {
-        if (!extractedParams.includes(key)) {
-          bodyParams[key] = value;
-        }
-      }
-      
-      // Validate required parameters
-      
-      const path = this.buildPath('/databases', pathParams);
-      // For GraphQL endpoints that use '/' as the path, use empty string to avoid double slash
-      const requestPath = path === '/' ? '' : path;
-      
-      // Report initial progress if callback provided
-      if (options?.onProgress) {
-        await options.onProgress({
-          progress: 0,
-          total: 100,
-          message: `Starting list_databases request...`
-        });
-      }
-      
-      // Use standard HTTP client for other auth types with abort signal
-      const requestConfig: any = {};
-      if (options?.signal) {
-        requestConfig.signal = options.signal;
-      }
-      
-      const response = await this.httpClient.get(requestPath, { params: queryParams, ...requestConfig });
-      
-      // Report completion progress if callback provided
-      if (options?.onProgress) {
-        await options.onProgress({
-          progress: 100,
-          total: 100,
-          message: `Completed list_databases request`
-        });
-      }
-      
-      const duration = Date.now() - startTime;
-      this.logger.info('ENDPOINT_SUCCESS', 'Endpoint execution completed successfully', {
-        endpoint: 'list_databases',
-        method: 'GET',
-        path: '/databases',
-        duration_ms: duration,
-        responseDataSize: JSON.stringify(response.data).length
-      });
-      
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(response.data, null, 2)
-          }
-        ]
-      };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      
-      // Check if error is due to cancellation
-      if (axios.isCancel(error)) {
-        this.logger.info('REQUEST_CANCELLED', 'Request was cancelled', {
-          endpoint: 'list_databases',
-          method: 'GET',
-          path: '/databases',
-          duration_ms: duration
-        });
-        throw new Error('Request was cancelled');
-      }
-      
-      this.logger.error('ENDPOINT_ERROR', 'Endpoint execution failed', {
-        endpoint: 'list_databases',
-        method: 'GET',
-        path: '/databases',
-        duration_ms: duration,
-        error: error instanceof Error ? error.message : String(error),
-        errorType: error instanceof Error ? error.constructor.name : 'unknown'
-      });
-      throw new Error(`Failed to execute list_databases: ${error instanceof Error ? error.message : String(error)}`);
-    }
   }
 
   /* DEBUG: endpoint={"name":"get_database","method":"GET","path":"/databases/{database_id}","description":"Get database by ID","parameters":{"database_id":{"type":"string","required":true,"description":"Database ID to fetch","location":"path"}},"response_format":"json","category":"Database Operations"} */
@@ -3359,6 +3220,260 @@ export class NotionClient {
         errorType: error instanceof Error ? error.constructor.name : 'unknown'
       });
       throw new Error(`Failed to execute get_comments: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async createPageFromTemplate(params: CreatePageFromTemplateParams, options?: RequestOptions): Promise<ToolResponse> {
+    const startTime = Date.now();
+    this.logger.info('ENDPOINT_START', 'Endpoint execution started', {
+      endpoint: 'create_page_from_template',
+      templatePageId: params.template_page_id
+    });
+
+    try {
+      if (options?.onProgress) {
+        await options.onProgress({ progress: 0, total: 100, message: 'Reading template page blocks...' });
+      }
+
+      // Get template page blocks
+      const blocksResult = await this.getBlockChildren({ block_id: params.template_page_id }, options);
+      const blocksData = JSON.parse(blocksResult.content[0].text);
+      const templateBlocks = (blocksData.results || []).map((block: any) => {
+        const { id, created_time, last_edited_time, created_by, last_edited_by, has_children, archived, in_trash, parent, ...rest } = block;
+        return rest;
+      });
+
+      if (options?.onProgress) {
+        await options.onProgress({ progress: 50, total: 100, message: 'Creating page from template...' });
+      }
+
+      // Build page creation params
+      const createParams: any = {
+        parent: params.parent,
+        children: templateBlocks,
+      };
+      if (params.properties) {
+        createParams.properties = params.properties;
+      }
+      if (params.title) {
+        createParams.properties = {
+          ...createParams.properties,
+          title: { title: [{ text: { content: params.title } }] },
+        };
+      }
+
+      const result = await this.createPage(createParams, options);
+
+      const duration = Date.now() - startTime;
+      this.logger.info('ENDPOINT_SUCCESS', 'Template page created successfully', {
+        endpoint: 'create_page_from_template',
+        duration_ms: duration
+      });
+
+      if (options?.onProgress) {
+        await options.onProgress({ progress: 100, total: 100, message: 'Page created from template' });
+      }
+
+      return result;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error('ENDPOINT_ERROR', 'Failed to create page from template', {
+        endpoint: 'create_page_from_template',
+        duration_ms: duration,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw new Error(`Failed to create page from template: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async createDatabaseFromTemplate(params: CreateDatabaseFromTemplateParams, options?: RequestOptions): Promise<ToolResponse> {
+    const startTime = Date.now();
+    this.logger.info('ENDPOINT_START', 'Endpoint execution started', {
+      endpoint: 'create_database_from_template',
+      templateDatabaseId: params.template_database_id
+    });
+
+    try {
+      if (options?.onProgress) {
+        await options.onProgress({ progress: 0, total: 100, message: 'Reading template database schema...' });
+      }
+
+      // Get template database schema
+      const dbResult = await this.getDatabase({ database_id: params.template_database_id }, options);
+      const dbData = JSON.parse(dbResult.content[0].text);
+
+      if (options?.onProgress) {
+        await options.onProgress({ progress: 50, total: 100, message: 'Creating database from template...' });
+      }
+
+      // Extract schema properties (exclude internal ones)
+      const properties = { ...dbData.properties };
+
+      const createParams: any = {
+        parent: params.parent,
+        title: [{ text: { content: params.title } }],
+        properties,
+      };
+
+      const result = await this.createDatabase(createParams, options);
+
+      const duration = Date.now() - startTime;
+      this.logger.info('ENDPOINT_SUCCESS', 'Template database created successfully', {
+        endpoint: 'create_database_from_template',
+        duration_ms: duration
+      });
+
+      if (options?.onProgress) {
+        await options.onProgress({ progress: 100, total: 100, message: 'Database created from template' });
+      }
+
+      return result;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error('ENDPOINT_ERROR', 'Failed to create database from template', {
+        endpoint: 'create_database_from_template',
+        duration_ms: duration,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw new Error(`Failed to create database from template: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async duplicatePage(params: DuplicatePageParams, options?: RequestOptions): Promise<ToolResponse> {
+    const startTime = Date.now();
+    this.logger.info('ENDPOINT_START', 'Endpoint execution started', {
+      endpoint: 'duplicate_page',
+      pageId: params.page_id
+    });
+
+    try {
+      if (options?.onProgress) {
+        await options.onProgress({ progress: 0, total: 100, message: 'Reading source page...' });
+      }
+
+      // Get source page
+      const pageResult = await this.getPage({ page_id: params.page_id }, options);
+      const pageData = JSON.parse(pageResult.content[0].text);
+
+      if (options?.onProgress) {
+        await options.onProgress({ progress: 25, total: 100, message: 'Reading page blocks...' });
+      }
+
+      // Get source page blocks
+      const blocksResult = await this.getBlockChildren({ block_id: params.page_id }, options);
+      const blocksData = JSON.parse(blocksResult.content[0].text);
+      const blocks = (blocksData.results || []).map((block: any) => {
+        const { id, created_time, last_edited_time, created_by, last_edited_by, has_children, archived, in_trash, parent, ...rest } = block;
+        return rest;
+      });
+
+      if (options?.onProgress) {
+        await options.onProgress({ progress: 50, total: 100, message: 'Creating duplicate page...' });
+      }
+
+      // Determine parent
+      const parent = params.parent || pageData.parent;
+
+      // Determine title
+      let properties = { ...pageData.properties };
+      if (params.title) {
+        properties.title = { title: [{ text: { content: params.title } }] };
+      } else {
+        // Try to prepend "Copy of " to existing title
+        const titleProp = properties.title || properties.Name;
+        if (titleProp?.title?.[0]?.text?.content) {
+          const originalTitle = titleProp.title[0].text.content;
+          properties.title = { title: [{ text: { content: `Copy of ${originalTitle}` } }] };
+        }
+      }
+
+      const createParams: any = {
+        parent,
+        properties,
+        children: blocks,
+      };
+
+      const result = await this.createPage(createParams, options);
+
+      const duration = Date.now() - startTime;
+      this.logger.info('ENDPOINT_SUCCESS', 'Page duplicated successfully', {
+        endpoint: 'duplicate_page',
+        duration_ms: duration
+      });
+
+      if (options?.onProgress) {
+        await options.onProgress({ progress: 100, total: 100, message: 'Page duplicated' });
+      }
+
+      return result;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error('ENDPOINT_ERROR', 'Failed to duplicate page', {
+        endpoint: 'duplicate_page',
+        duration_ms: duration,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw new Error(`Failed to duplicate page: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async duplicateDatabase(params: DuplicateDatabaseParams, options?: RequestOptions): Promise<ToolResponse> {
+    const startTime = Date.now();
+    this.logger.info('ENDPOINT_START', 'Endpoint execution started', {
+      endpoint: 'duplicate_database',
+      databaseId: params.database_id
+    });
+
+    try {
+      if (options?.onProgress) {
+        await options.onProgress({ progress: 0, total: 100, message: 'Reading source database...' });
+      }
+
+      // Get source database
+      const dbResult = await this.getDatabase({ database_id: params.database_id }, options);
+      const dbData = JSON.parse(dbResult.content[0].text);
+
+      if (options?.onProgress) {
+        await options.onProgress({ progress: 50, total: 100, message: 'Creating duplicate database...' });
+      }
+
+      // Determine parent
+      const parent = params.parent || dbData.parent;
+
+      // Determine title
+      let title = params.title;
+      if (!title) {
+        const originalTitle = dbData.title?.[0]?.text?.content || 'Untitled';
+        title = `Copy of ${originalTitle}`;
+      }
+
+      const createParams: any = {
+        parent,
+        title: [{ text: { content: title } }],
+        properties: dbData.properties,
+      };
+
+      const result = await this.createDatabase(createParams, options);
+
+      const duration = Date.now() - startTime;
+      this.logger.info('ENDPOINT_SUCCESS', 'Database duplicated successfully', {
+        endpoint: 'duplicate_database',
+        duration_ms: duration
+      });
+
+      if (options?.onProgress) {
+        await options.onProgress({ progress: 100, total: 100, message: 'Database duplicated' });
+      }
+
+      return result;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error('ENDPOINT_ERROR', 'Failed to duplicate database', {
+        endpoint: 'duplicate_database',
+        duration_ms: duration,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw new Error(`Failed to duplicate database: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

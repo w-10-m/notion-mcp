@@ -50,7 +50,7 @@ describe('Config', () => {
 
       const config = loadConfig();
 
-      expect(config.notion.nOTIONACCESSTOKEN).toBe('notion_access_token');
+      expect(config.notion.notionAccessToken).toBe('notion_access_token');
     });
   });
 
@@ -66,7 +66,7 @@ describe('Config', () => {
           logLevel: 'ERROR'
         },
         notion: {
-          nOTIONACCESSTOKEN: 'test-token'
+          notionAccessToken: 'test-token'
         }
       };
 
@@ -87,7 +87,7 @@ describe('Config', () => {
           logLevel: 'ERROR'
         },
         notion: {
-          nOTIONACCESSTOKEN: ''
+          notionAccessToken: ''
         }
       };
 
@@ -109,7 +109,7 @@ describe('Config', () => {
             logLevel: 'ERROR'
           },
           notion: {
-            nOTIONACCESSTOKEN: 'test-token'
+            notionAccessToken: 'test-token'
           }
         };
 
@@ -130,7 +130,7 @@ describe('Config', () => {
             logLevel: 'ERROR'
           },
           notion: {
-            nOTIONACCESSTOKEN: 'test-token'
+            notionAccessToken: 'test-token'
           }
         };
 
@@ -151,7 +151,7 @@ describe('Config', () => {
             logLevel: 'ERROR'
           },
           notion: {
-            nOTIONACCESSTOKEN: 'test-token'
+            notionAccessToken: 'test-token'
           }
         };
 
@@ -172,7 +172,7 @@ describe('Config', () => {
             logLevel: 'ERROR'
           },
           notion: {
-            nOTIONACCESSTOKEN: 'test-token'
+            notionAccessToken: 'test-token'
           }
         };
 
@@ -194,7 +194,7 @@ describe('Config', () => {
             logLevel: 'ERROR'
           },
           notion: {
-            nOTIONACCESSTOKEN: 'test-token'
+            notionAccessToken: 'test-token'
           }
         };
 
