@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/w-10-m/notion-mcp/compare/v1.5.0...v1.6.0) (2026-03-03)
+
+
+### Features
+
+* upgrade SDK to 1.27.1, add template/duplication tools, fix bugs ([decf8e6](https://github.com/w-10-m/notion-mcp/commit/decf8e651abf84d1d8782fa643ed063fc55b9408))
+
 # [1.5.0](https://github.com/w-10-m/notion-mcp/compare/v1.4.0...v1.5.0) (2025-12-25)
 
 
