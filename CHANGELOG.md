@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/w-10-m/notion-mcp/compare/v1.6.0...v1.6.1) (2026-03-03)
+
+
+### Bug Fixes
+
+* patch security vulnerabilities in dependencies ([b85078c](https://github.com/w-10-m/notion-mcp/commit/b85078c2114c72f26151b8e45ee15089804ab5d5))
+
 # [1.6.0](https://github.com/w-10-m/notion-mcp/compare/v1.5.0...v1.6.0) (2026-03-03)
 
 
